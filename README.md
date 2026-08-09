@@ -10,9 +10,25 @@
     - METHOD: GET
     - REQUEST: Null
     - RESPONSE: {
-            "status": "ONLINE",
+            "status": str,
             "errors": {
-                "msg": ""
+                "msg": str
             }
         }
 
+* JSON Validator
+    - ENDPOINT: /api/v1/json-validator/validate
+    - METHOD: POST
+    - REQUEST: {
+        schema: object,
+        data: object
+    }
+    - RESPONSE: {
+        "valid": bool,
+        "errors": [
+            {
+                "path": str,
+                "message: str
+            }
+        ]
+    }
