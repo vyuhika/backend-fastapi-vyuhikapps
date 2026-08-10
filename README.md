@@ -32,3 +32,18 @@
             }
         ]
     }
+
+#########################################
+                End
+#########################################
+
+
+* Authentication:
+    - Email & Password
+    - Google OIDC
+    - Apple Sign In
+    - Microsoft OIDC
+
+* Authorization:
+    - roles: super_admin, candidate, referal_admin
+    - permission/scopes
