@@ -27,7 +27,7 @@ class User(Base):
         nullable = True,
     )
 
-    avtar_url: Mapped[str | None] = mapped_column(
+    avatar_url: Mapped[str | None] = mapped_column(
         String,
         nullable = True,
     )

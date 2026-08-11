@@ -21,7 +21,7 @@ class UserIdentity(Base):
         index = True,
     )
 
-    provide: Mapped[str] = mapped_column(
+    provider: Mapped[str] = mapped_column(
         String, 
         index = True,
     )
