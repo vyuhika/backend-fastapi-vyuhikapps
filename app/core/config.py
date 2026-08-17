@@ -14,18 +14,27 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    GOOGLE_CLIENT_ID: str | None = None
+    SESSION_SECRET_KEY: str
 
-    APPLE_CLIENT_ID: str | None = None
+    FRONTEND_ORIGIN: str = "http://localhost:3000"
+    FRONTEND_AUTH_SUCCESS_URL: str
+    FRONTEND_AUTH_ERROR_URL: str
+
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
+
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
 
     MICROSOFT_CLIENT_ID: str | None = None
+    MICROSOFT_CLIENT_SECRET: str | None = None
     MICROSOFT_TENANT: str = "common"
 
+    APPLE_CLIENT_ID: str | None = None
+    APPLE_CLIENT_SECRET: str | None = None
 
-    model_config = SettingsConfigDict(
-        env_file = ".env",
-        extra = "ignore",
-    )
+    class Config:
+        env_file = ".env"
 
 
 
