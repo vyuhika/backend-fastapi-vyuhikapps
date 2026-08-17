@@ -1,163 +1,72 @@
-import httpx
-from fastapi import HTTPException
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token as google_id_token
-from jose import jwt
+from authlib.integrations.starlette_client import OAuth
 
 from app.core.config import settings
 
+oauth = OAuth()
 
 
-def verify_google_token(token: str) -> dict:
-    if not settings.GOOGLE_CLIENT_ID:
-        raise HTTPException(
-            status_code = 500,
-            detail = "Google login is not configured",
-        )
+if settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET:
+    oauth.register(
+        name="google",
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
 
-    try:
-        payload = google_id_token.verify_oauth2_token(
-            token,
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID,
-        )
 
-    except Exception:
-        return HTTPException(
-            status_code = 401,
-            detail = "Invalid Google Token",
-        )
+if settings.MICROSOFT_CLIENT_ID and settings.MICROSOFT_CLIENT_SECRET:
+    oauth.register(
+        name="microsoft",
+        client_id=settings.MICROSOFT_CLIENT_ID,
+        client_secret=settings.MICROSOFT_CLIENT_SECRET,
+        server_metadata_url=(
+            f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT}"
+            "/v2.0/.well-known/openid-configuration"
+        ),
+        client_kwargs={
+            "scope": "openid email profile",
+        },
+        claims_options={
+            "iss": {
+                "essential": False,
+            }
+        },
+    )
 
-    if not payload.get("email"):
-        raise HTTPException(
-            status_code = 400,
-            detail = "Google account has no email",
-        )
 
-    return {
-        "provider": "google",
-        "provider_subject": payload["sub"],
-        "email": payload["email"],
-        "name": payload.get("name"),
-        "avatar_url": payload.get("picture"),        
-    }
+if settings.APPLE_CLIENT_ID and settings.APPLE_CLIENT_SECRET:
+    oauth.register(
+        name="apple",
+        client_id=settings.APPLE_CLIENT_ID,
+        client_secret=settings.APPLE_CLIENT_SECRET,
+        server_metadata_url="https://appleid.apple.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email name"},
+    )
 
-async def verify_apple_token(token: str) -> dict:
-    if not settings.APPLE_CLIENT_ID:
-        raise HTTPException(
-            status_code = 500,
-            detail = "Apple login is not configured!",
-        )
 
-    try:
-        headers = jwt.get_unverified_header(token)
+def normalize_oauth_profile(provider: str, token: dict) -> dict:
+    userinfo = token.get("userinfo")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get("https://appleid.apple.com/auth/keys")
-            response.raise_for_status()
-            jwks = response.json()
+    if not userinfo:
+        userinfo = token.get("id_token_claims")
 
-        key = next(
-            item for item in jwks["keys"] if item["kid"] == headers["kid"]
-        )
-
-        payload = jwt.decode(
-            token, 
-            key,
-            algorithms = ["RS256"],
-            audience = settings.APPLE_CLIENT_ID,
-            issuer = "https://appleid.apple.com",
-        )
-
-    except Exception:
-        raise HTTPException(
-            status_code = 401,
-            detail = "Invalid apple token!",
-        )
-
-    email = payload.get("email")
-
-    if not email:
-        raise HTTPException(
-            status_code = 400,
-            detail = "Apple token has no email. Store email during Apple first login!"
-        )
-
-    return {
-        "provider": "apple",
-        "provider_subject": payload["sub"],
-        "email": email,
-        "name": None,
-        "avatar_url": None,
-    }
-
-async def verify_microsoft_token(token: str) -> dict:
-    if not settings.MICROSOFT_CLIENT_ID:
-        raise HTTPException(
-            status_code = 500,
-            detail = "Microsoft login is not configured"
-        )
-
-    tenant = settings.MICROSOFT_TENANT
-
-    try:
-        metadata_url = (
-            f"https://login.microsoftonline.com/{tenant}/v2.0/"
-            ".well-known/openid-configuration"
-        )
-
-        async with httpx.AsyncClient() as client:
-            metadata_response = await client.get(metadata_url)
-            metadata_response.raise_for_status()
-            metadata = metadata_response.json()
-
-            jwks_response = await client.get(metadata["jwks_uri"])
-            jwks_response.raise_for_status()
-            jwks = jwks_response.json()
-
-        headers = jwt.get_unverified_header(token)
-
-        key = next(
-            item for item in jwks["keys"] if item["kid"] == headers["kid"]
-        )
-
-        payload = jwt.decode(
-            token,
-            key,
-            algorithms = ["RS256"],
-            audience = settings.MICROSOFT_CLIENT_ID,
-            options = {"verify_iss": False},
-        )
-    except Exception:
-        raise HTTPException(
-            status_code = 401,
-            detail = "Invalid Microsoft token"
-        )
-
-    issuer = payload.get("iss", "")
-
-    if "login.microsoftonline.com" not in issuer:
-        raise HTTPException(
-            status_code = 401,
-            detail = "Invalid Microsoft issuer"
-        )
+    if not userinfo:
+        raise ValueError("OAuth provider did not return user info")
 
     email = (
-        payload.get("email")
-        or payload.get("preferred_username")
-        or payload.get("upn")
+        userinfo.get("email")
+        or userinfo.get("preferred_username")
+        or userinfo.get("upn")
     )
 
     if not email:
-        raise HTTPException(
-            status_code = 400,
-            detail = "Microsoft account has no email"
-        )
+        raise ValueError("OAuth provider did not return email")
 
     return {
-        "provider": "microsoft",
-        "provider_subject": payload["sub"],
+        "provider": provider,
+        "provider_subject": userinfo["sub"],
         "email": email,
-        "name": payload.get("name"),
-        "avatar_url": None,
+        "name": userinfo.get("name"),
+        "avatar_url": userinfo.get("picture"),
     }
