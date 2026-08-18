@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -15,6 +17,7 @@ app = FastAPI(
     title= settings.app_name,
     version= settings.app_version,
     description= "Apps for vyuhika platform.",
+    docs_url= None,
 )
 
 app.add_middleware(
@@ -32,6 +35,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(api_router, prefix= "/api/v1", tags=["v1"])
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
@@ -48,6 +53,13 @@ async def health_status_check():
         },
     }
 
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title="Vyuhika API Docs",
+        swagger_favicon_url="/static/favicon.ico"
+    )
 
 
 if __name__ == "__main__":
