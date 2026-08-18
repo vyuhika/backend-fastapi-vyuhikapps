@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     APPLE_CLIENT_SECRET: str | None = None
 
     class Config:
-        env_file = ".env"
+        env_file = ".env.example"
 
 
 
